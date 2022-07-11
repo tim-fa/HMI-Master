@@ -14,7 +14,7 @@ void Server::run()
 {
 	startServerThread();
 }
- 
+
 void Server::onClientConnected(const ConnectionInfo& connection)
 {
 	Log::info("%d connected", connection.socket);
@@ -23,14 +23,14 @@ void Server::onClientConnected(const ConnectionInfo& connection)
 
 void Server::onClientDisconnected(const ConnectionInfo& connection)
 {
-	Log::info("%d disconnected",connection.socket);
+	Log::info("%d disconnected", connection.socket);
 	for (int i = 0; i < connectedSockets.size(); i++)
 	{
 		if (connectedSockets[i] == connection.socket) {
 			connectedSockets[i] = connectedSockets.back();
 			connectedSockets.pop_back();
 		}
-	
+
 	}
 }
 
@@ -38,7 +38,9 @@ void Server::onDataReceived(Packet& data, const ConnectionInfo& sender)
 {
 	HMI::HMIPacket* hmiPacket = reinterpret_cast<HMI::HMIPacket*>(&data.data[0]);
 	for (auto socket : connectedSockets) {
-		Log::info("BUS Received Packet from 0x%X to 0x%X. Broadcasting to BUS", hmiPacket->header.sourceId, hmiPacket->header.targetId);
-		sendData(socket,"", hmiPacket, HMI::getHmiPacketSize(*hmiPacket));
+		if (socket != sender.socket) {
+			Log::info("BUS Received Packet from 0x%X to 0x%X. Broadcasting to BUS", hmiPacket->sourceId, hmiPacket->targetId);
+			sendData(socket, "", hmiPacket, HMI::getHmiPacketSize(*hmiPacket));
+		}
 	}
 }

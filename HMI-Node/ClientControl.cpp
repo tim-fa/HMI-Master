@@ -5,6 +5,28 @@
 
 
 
+void ClientControl::handlePacketQueue()
+{
+	if (!packetQueue.empty()) {
+		auto hmiPacket = &packetQueue.front();
+		HMI::HMIPacket sendPacket;
+		std::string inputBuffer;
+		switch (hmiPacket->commandId) {
+		case HMI::RequestInput:
+			Log::info("Application-SG %X expects a user input. Please enter a string and confirm with [ENTER]", hmiPacket->sourceId);
+			std::cin >> inputBuffer;
+			sendPacket = HMI::generatePacket(HMI::HMIDataPacket, HMI::nodeId, hmiPacket->sourceId, inputBuffer);
+			sendData(getSocket(), "", &sendPacket, HMI::getHmiPacketSize(sendPacket));
+			break;
+		case HMI::RequestResend:
+			break;
+		default:
+			Log::error("Unsupported command %d", hmiPacket->commandId);
+		}
+		packetQueue.pop_front();
+	}
+}
+
 void ClientControl::onDataReceived(Packet& p)
 {
 	auto hmiPacket = reinterpret_cast<HMI::HMIPacket*>(&p.data[0]);
@@ -28,23 +50,10 @@ void ClientControl::onDataReceived(Packet& p)
 	+----------------------------+
 )", hmiPacket->checksum, hmiPacket->commandId, hmiPacket->sourceId, hmiPacket->targetId, hmiPacket->dataLength);
 
-
-		HMI::HMIPacket sendPacket;
-		std::string inputBuffer;
-		switch (hmiPacket->commandId) {
-		case HMI::Acknowledge:
+		if (hmiPacket->commandId == HMI::Acknowledge) {
 			Log::info("ACK recieved from 0x%X", hmiPacket->sourceId);
-			break;
-		case HMI::RequestInput:
-			Log::info("Application-SG %X expects a user input. Please enter a string and confirm with [ENTER]", hmiPacket->sourceId);
-			std::cin >> inputBuffer;
-			sendPacket = HMI::generatePacket(HMI::HMIDataPacket, HMI::nodeId, hmiPacket->sourceId, inputBuffer);
-			sendData(getSocket(), "", &sendPacket, HMI::getHmiPacketSize(sendPacket));
-			break;
-		case HMI::RequestResend:
-			break;
-		default:
-			Log::error("Unsupported command %d", hmiPacket->commandId);
+			return;
 		}
+		packetQueue.push_back(*hmiPacket);
 	}
 }

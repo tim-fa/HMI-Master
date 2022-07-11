@@ -14,6 +14,13 @@ int main()
 
 	HMI::nodeId = 0; // HMI-Control Unit always has device ID 0
 
+	auto t = std::thread([&client]() {
+		while (true) {
+			client.handlePacketQueue();
+			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		}
+		});
+
 	while (true) {
 		if (!client.connectionActive())
 		{
